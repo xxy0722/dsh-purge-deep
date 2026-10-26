@@ -1,4 +1,4 @@
-# 不上传
+# 依赖与构建产物
 node_modules/
 *.tgz
 npm-debug.log*
@@ -6,27 +6,16 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# 只给本机 Cursor 技能看，不进仓库
-docs/agents/
-
-# 本地草稿，不进仓库
+# 本地草稿
 scripts/tmp-*.mjs
 scripts/test-*.mjs
 .scratch/
-dsh-redteam-mode-main/
-/1
 
-# 外部参考，不是本插件
-choirboy-prompt/
-/choirboy-prompt/
-_archive/
-频道推广手册/
-
-# 嵌入前的提示词原文
+# 嵌入前的提示词原文（由 scripts/embed-default-prompt.mjs 生成加密槽）
 lib/default-prompt-inject.md
 default-prompt-inject.md
 
-# 本机官方安装包、解包目录、拆出的压缩包
+# 本地官方安装包、解包目录、拆出的压缩包
 /deepseek-harness-*.exe
 /official-harness-unpacked/
 /official-harness-payload.7z
