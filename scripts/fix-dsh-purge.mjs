@@ -370,6 +370,6 @@ if (fail.length === 0) {
 }
 console.log(`有 ${fail.length} 项未通过。`);
 console.log("能自动修的已经修了；标「被覆盖，需重新注入」的说明插件源码被更新覆盖，");
-console.log("需要按 ~/.workbuddy/skills/dsh-desktop-repair 的重打流程补回守卫。");
+console.log("需要重新打一遍补丁（见 README「dsh 升级之后怎么办」一节）。");
 if (needRestart) console.log("→ 有修改，重启 DeepSeek Harness 生效。");
 process.exit(1);
