@@ -1,0 +1,100 @@
+{
+  "name": "dsh-purge",
+  "version": "2.0.0",
+  "description": "DeepSeek Harness 破甲深度分支（dsh-purge-deep）：首尾夹击 + 生成层熔断 + 宿主源码级补丁。基于 YuJunZhiXue/dsh-purge 改造，适配 dsh 桌面版 0.2.1-rc.3。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client.js",
+    "./redteam": "./lib/redteam/index.js",
+    "./redteam/store": "./lib/redteam/store.js",
+    "./redteam/ui": "./lib/redteam/ui.js",
+    "./redteam/tools": "./lib/redteam/tools.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-purge": "bin/dsh-purge.js"
+  },
+  "files": [
+    "lib",
+    "!lib/default-prompt-inject.md",
+    "bin",
+    "docs",
+    "presets",
+    "skills",
+    "scripts",
+    "client.js",
+    "cordis.patch.yml",
+    "screenshots.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "embed-prompt": "node scripts/embed-default-prompt.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "fix": "node scripts/fix-dsh-purge.mjs",
+    "check": "node scripts/fix-dsh-purge.mjs --check"
+  },
+  "license": "MIT",
+  "author": "xxy0722",
+  "contributors": [
+    "小杨 (YuJunZhiXue) — 原始项目 dsh-purge"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-plugins",
+    "deepseek-harness",
+    "llm-security",
+    "harness-security",
+    "red-team",
+    "prompt-eval",
+    "jailbreak",
+    "prefill",
+    "agent",
+    "网络安全",
+    "红队评测"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xxy0722/dsh-purge-deep.git"
+  },
+  "homepage": "https://github.com/xxy0722/dsh-purge-deep#readme",
+  "bugs": {
+    "url": "https://github.com/xxy0722/dsh-purge-deep/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    },
+    "install": {
+      "preferred": "tarball",
+      "tarball": "https://github.com/xxy0722/dsh-purge-deep/archive/refs/heads/main.tar.gz",
+      "zip": "https://github.com/xxy0722/dsh-purge-deep/archive/refs/heads/main.zip",
+      "git": "https://github.com/xxy0722/dsh-purge-deep.git"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dshTarget": "0.2.0-rc.2"
+}
