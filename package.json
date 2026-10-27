@@ -1,6 +1,6 @@
 {
   "name": "dsh-purge",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "DeepSeek Harness 破甲深度分支（dsh-purge-deep）：首尾夹击 + 生成层熔断 + 宿主源码级补丁。基于 YuJunZhiXue/dsh-purge 改造，适配 dsh 桌面版 0.2.1-rc.3。",
   "type": "module",
   "main": "lib/index.js",
