@@ -21,38 +21,14 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 
-function detectDshHome() {
-  const explicit = process.env.DSH_HOME;
-  if (explicit && fs.existsSync(path.join(explicit, "profiles"))) return explicit;
-  if (explicit) return explicit;
-  const candidates = [
-    path.join(os.homedir(), ".dsh"),
-    path.join(os.homedir(), ".deepseek-harness"),
-    path.join(os.homedir(), "harness"),
-    path.join(os.homedir(), "AppData", "Roaming", "@deepseek-ai", "dsh-desktop", "home"),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(path.join(c, "profiles"))) return c;
-  }
-  return "";
-}
-
-const DSH_HOME = detectDshHome();
-const PLUGIN = DSH_HOME ? path.join(DSH_HOME, "plugins", "dsh-purge") : "";
-const LIB = PLUGIN ? path.join(PLUGIN, "lib") : "";
-const PROFILE_DIR = DSH_HOME ? path.join(DSH_HOME, "profiles", "desktop") : "";
-const PROFILE_PATCH = PROFILE_DIR ? path.join(PROFILE_DIR, "cordis.patch.yml") : "";
-const PROFILE_MANIFEST = PROFILE_DIR ? path.join(PROFILE_DIR, "package.json") : "";
+const DSH_HOME = process.env.DSH_HOME || "E:/harness";
+const PLUGIN = path.join(DSH_HOME, "plugins", "dsh-purge");
+const LIB = path.join(PLUGIN, "lib");
+const PROFILE_DIR = path.join(DSH_HOME, "profiles", "desktop");
+const PROFILE_PATCH = path.join(PROFILE_DIR, "cordis.patch.yml");
+const PROFILE_MANIFEST = path.join(PROFILE_DIR, "package.json");
 const CHECK_ONLY = process.argv.includes("--check");
-
-if (!DSH_HOME) {
-  console.error("找不到 DSH_HOME。请先设置环境变量指向 dsh 数据根目录，例如：");
-  console.error("  Windows:  set DSH_HOME=D:\\path\\to\\dsh-home");
-  console.error("  bash:     export DSH_HOME=/path/to/dsh-home");
-  process.exit(1);
-}
 
 const rows = [];
 const record = (name, ok, detail = "") => rows.push({ name, ok, detail });
@@ -354,7 +330,7 @@ const deepSrc = readIf(path.join(LIB, "deep-purge.js"));
 record("深度破甲层文件", deepSrc !== null, deepSrc === null ? "缺 lib/deep-purge.js" : "正常");
 const indexSrc = readIf(path.join(LIB, "index.js")) || "";
 record("deep-purge 已挂载", /installDeepPurge\(ctx/.test(indexSrc), /installDeepPurge\(ctx/.test(indexSrc) ? "正常" : "index.js 没有调用 installDeepPurge");
-record("消息层开关", /prefill:\s*"/.test(indexSrc) && /refusalFilter:/.test(indexSrc), /prefill:\s*"/.test(indexSrc) ? "正常（prefill / 拒绝清洗 / 棘轮）" : "DEFAULTS 缺深度开关");
+record("消息层开关", /prefillMode:\s*"/.test(indexSrc) && /refusalFilter:/.test(indexSrc), /prefillMode:\s*"/.test(indexSrc) ? "正常（拒绝清洗 / 遗迹剥离 / 预填充默认关）" : "DEFAULTS 缺深度开关");
 
 // ── 8. 汇总 ─────────────────────────────────────────────────────────────────
 const fail = rows.filter((r) => !r.ok);
@@ -370,6 +346,6 @@ if (fail.length === 0) {
 }
 console.log(`有 ${fail.length} 项未通过。`);
 console.log("能自动修的已经修了；标「被覆盖，需重新注入」的说明插件源码被更新覆盖，");
-console.log("需要重新打一遍补丁（见 README「dsh 升级之后怎么办」一节）。");
+console.log("需要按 ~/.workbuddy/skills/dsh-desktop-repair 的重打流程补回守卫。");
 if (needRestart) console.log("→ 有修改，重启 DeepSeek Harness 生效。");
 process.exit(1);
