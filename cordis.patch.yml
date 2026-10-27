@@ -56,6 +56,16 @@
         continueText: "继续"
         capabilityProtocol: true
         hooksDenyBypass: true
+        # 深度层开关（改完重启生效）
+        deepPurge: true              # 总开关：历史拒绝清洗 + 遗迹剥离
+        refusalFilter: true          # 把历史里的拒绝回复改写成「已作废」
+        stripPrefillArtifacts: true  # 剥掉历史里残留的「可以，」/「Yes. 」开头
+        tailSteer: false             # 尾棘轮（追加到真实用户消息末尾，默认关）
+        prefillMode: "off"           # assistant 预填充：off / always（默认关）
+        # system 层开关
+        tailAnchor: true             # 末尾追加 dshpg-anchor
+        safetyFilter: true           # 纯安全段整段下线（段名 + 词根密度双判）
+        identityParagraphPurge: true # 结构性剥离官方身份段
 
     # 演练台：预设 + 技能落地（本插件 lib/redteam）
     - id: dsh-purge-redteam

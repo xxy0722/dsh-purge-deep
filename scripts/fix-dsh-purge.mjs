@@ -20,15 +20,80 @@
  *   node fix-dsh-purge.mjs --check    # 只检测，不修改
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
-const DSH_HOME = process.env.DSH_HOME || "D:/DSH";
+/**
+ * DSH_HOME 探测顺序：显式环境变量 → 家目录下的 harness / .dsh → 当前目录。
+ * 都没有就退出并提示，不再写死某个人的安装路径（旧版写死会让其他用户
+ * 永远看到一排 FAIL，误以为自己装坏了）。
+ */
+function detectDshHome() {
+  const fromEnv = String(process.env.DSH_HOME || "").trim();
+  if (fromEnv) return fromEnv;
+  const home = process.env.USERPROFILE || os.homedir();
+  const probes = [
+    path.join(home, "harness"),
+    path.join(home, ".dsh"),
+    process.cwd(),
+  ];
+  for (const probe of probes) {
+    try {
+      if (fs.existsSync(path.join(probe, "profiles", "desktop"))) return probe;
+    } catch { /* ignore */ }
+  }
+  return "";
+}
+
+const DSH_HOME = detectDshHome();
+if (!DSH_HOME) {
+  console.error("找不到 dsh 数据目录。请先设置 DSH_HOME 再运行，例如：");
+  console.error("  Windows:  set DSH_HOME=C:\\Users\\<you>\\harness");
+  console.error("  macOS/Linux:  export DSH_HOME=$HOME/harness");
+  process.exit(2);
+}
 const PLUGIN = path.join(DSH_HOME, "plugins", "dsh-purge");
 const LIB = path.join(PLUGIN, "lib");
 const PROFILE_DIR = path.join(DSH_HOME, "profiles", "desktop");
 const PROFILE_PATCH = path.join(PROFILE_DIR, "cordis.patch.yml");
 const PROFILE_MANIFEST = path.join(PROFILE_DIR, "package.json");
 const CHECK_ONLY = process.argv.includes("--check");
+
+/**
+ * 宿主安装目录探测。桌面版可能装在 Program Files、LocalAppData 或与数据目录同级。
+ * 全部走标准位置，不依赖某一台机器的盘符。
+ */
+function detectResources() {
+  const candidates = [];
+  const env = String(process.env.DSH_RESOURCES || "").trim();
+  if (env) candidates.push(env);
+  candidates.push(path.join(DSH_HOME, "resources"));
+  const local = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+  const pf = process.env.ProgramFiles || "C:\\Program Files";
+  candidates.push(path.join(pf, "DeepSeek Harness", "resources"));
+  candidates.push(path.join(local, "Programs", "DeepSeek Harness", "resources"));
+  candidates.push(path.join(local, "DeepSeek Harness", "resources"));
+  // 安装目录常与数据目录同级（如 D:\App\... 与 D:\harness），扫一遍兄弟目录。
+  try {
+    const parent = path.dirname(DSH_HOME);
+    for (const name of fs.readdirSync(parent)) {
+      candidates.push(path.join(parent, name, "resources"));
+    }
+  } catch { /* ignore */ }
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(path.join(candidate, "app.asar")) || fs.existsSync(path.join(candidate, "app"))) {
+        return candidate;
+      }
+    } catch { /* ignore */ }
+  }
+  for (const candidate of candidates) {
+    try { if (fs.existsSync(candidate)) return candidate; } catch { /* ignore */ }
+  }
+  return "";
+}
+
+const RESOURCES = detectResources();
 
 const rows = [];
 const record = (name, ok, detail = "") => rows.push({ name, ok, detail });
@@ -66,7 +131,8 @@ let desktopVersion = "(未知)";
 // 权威来源：桌面版崩溃日志头部的 `app: @deepseek-ai/dsh-desktop <ver>`。
 // app.asar 在 Node 里不可读，日志头是最省事的取版本入口。
 try {
-  const logDir = "C:/Users/user/AppData/Roaming/@deepseek-ai/dsh-desktop/logs";
+  const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  const logDir = path.join(appData, "@deepseek-ai", "dsh-desktop", "logs");
   const logs = fs.readdirSync(logDir).filter((f) => f.startsWith("crash-")).sort();
   for (let i = logs.length - 1; i >= 0 && desktopVersion === "(未知)"; i -= 1) {
     const head = (readIf(path.join(logDir, logs[i])) || "").slice(0, 600);
@@ -74,9 +140,9 @@ try {
     if (m) desktopVersion = m[1];
   }
 } catch { /* ignore */ }
-if (desktopVersion === "(未知)") {
+if (desktopVersion === "(未知)" && RESOURCES) {
   try {
-    const rt = JSON.parse(readIf("D:/DSH/resources/runtime/primary-runtime/runtime.json") || "{}");
+    const rt = JSON.parse(readIf(path.join(RESOURCES, "runtime", "primary-runtime", "runtime.json")) || "{}");
     desktopVersion = rt.desktopVersion || desktopVersion;
   } catch { /* ignore */ }
 }
@@ -154,14 +220,18 @@ if (identity === null) {
     record("插值白名单移除 cwd", ok, ok ? "正常" : "未识别到预期结构");
   }
 
-  // 2c. 官方面板里的 cwd 文案
+  // 2c. 官方面板里的 cwd 文案：按"整个文件是否还有 {{cwd}} 残留"判定，
+  //     不再用固定字符串计数（换引号/换措辞会漏，且旧写法无论怎样都报正常）。
   const cwdLineCount = (src.match(/"Working directory: \{\{cwd\}\}\. ",/g) || []).length;
   if (cwdLineCount > 0) {
     src = src.replace(/"Working directory: \{\{cwd\}\}\. ",/g, '      "",');
-    record("persona 替换串清除 cwd", true, `已修复 ${cwdLineCount} 处`);
-  } else {
-    record("persona 替换串清除 cwd", true, "正常");
   }
+  const cwdResidual = (src.match(/(?<![=!<>])=(?!=)\s*"[^"\n]*\{\{cwd\}\}/g) || []).length;
+  record(
+    "persona 替换串清除 cwd",
+    cwdResidual === 0,
+    cwdLineCount > 0 ? `已修复 ${cwdLineCount} 处` : (cwdResidual === 0 ? "正常" : `仍有 ${cwdResidual} 处会输出 {{cwd}} 的赋值`),
+  );
 
   // 2d. 出口清洗函数存在（缺失则注入）
   const SANITIZE_FN = `/**
@@ -221,9 +291,17 @@ if (patchSrc === null) {
       /(\n\s*)personaSuffix: Your working directory is \{\{cwd\}\}\./,
       '$1# dsh 0.2.1+ 不再注册 {{cwd}} 变量，残留引用会让整轮组装失败\n$1personaSuffix: ""',
     );
-    record("插件补丁 personaSuffix", true, writeIfChanged(patchPath, patchSrc, next) ? "已修复" : "无需修改");
+    // 判据看"改完之后还有没有 {{cwd}}"，check 模式下不写文件但同样要判。
+    const clean = !/\{\{cwd\}\}/.test(next);
+    const wrote = writeIfChanged(patchPath, patchSrc, next);
+    record(
+      "插件补丁 personaSuffix",
+      clean,
+      CHECK_ONLY ? (clean ? "检查模式：待修复" : "仍有 {{cwd}} 残留") : (wrote ? "已修复" : "无需修改"),
+    );
   } else {
-    record("插件补丁 personaSuffix", /personaSuffix:\s*""/.test(patchSrc), "正常");
+    const ok = /personaSuffix:\s*""/.test(patchSrc) || !/\{\{cwd\}\}/.test(patchSrc);
+    record("插件补丁 personaSuffix", ok, ok ? "正常" : "未识别到 personaSuffix 结构，需人工检查");
   }
 }
 
@@ -236,9 +314,18 @@ if (profSrc === null) {
     /(\n\s*)suffix: Your working directory is \{\{cwd\}\}\.\n/,
     '$1# dsh 0.2.1+ 只注册 provider / model，工作目录由 working-directory 服务提供\n',
   );
-  record("profile 预设 suffix", true, writeIfChanged(PROFILE_PATCH, profSrc, next) ? "已修复" : "无需修改");
+  const clean = !/\{\{cwd\}\}/.test(next);
+  const wrote = writeIfChanged(PROFILE_PATCH, profSrc, next);
+  record(
+    "profile 预设 suffix",
+    clean,
+    CHECK_ONLY ? (clean ? "检查模式：待修复" : "仍有 {{cwd}} 残留") : (wrote ? "已修复" : "无需修改"),
+  );
 } else {
-  record("profile 预设 suffix", true, "正常");
+  // 注释里提到 {{cwd}} 是说明文字，不算残留，只统计生效行。
+  const live = profSrc.split("\n").filter((line) => !/^\s*#/.test(line)).join("\n");
+  const clean = !/\{\{cwd\}\}/.test(live);
+  record("profile 预设 suffix", clean, clean ? "正常" : "仍有 {{cwd}} 残留，需人工检查");
 }
 
 // ── 5. extract-asar.js：宿主写入守卫（默认放开）───────────────────────────
@@ -276,7 +363,9 @@ const coreSrc = readIf(corePath);
 if (coreSrc === null) {
   record("core.js 可读", false, "文件不存在");
 } else {
-  record("core 导入守卫", /hostWriteAllowed/.test(coreSrc), /hostWriteAllowed/.test(coreSrc) ? "正常" : "缺失");
+  // 只匹配注释里出现同样会被误判，必须要求是真正的 import 绑定。
+  const coreImportsGuard = /import\s*\{[^}]*\bhostWriteAllowed\b[^}]*\}\s*from/.test(coreSrc);
+  record("core 导入守卫", coreImportsGuard, coreImportsGuard ? "正常" : "缺少 import { hostWriteAllowed } 绑定");
 
   const atomicGuarded = /if \(!hostWriteAllowed\(fp\)\) \{\s*\n\s*noteBlockedWrite\(fp\);/.test(coreSrc);
   record("atomicWrite 守卫", atomicGuarded, atomicGuarded ? "正常" : "被覆盖，需重新注入");
@@ -286,23 +375,36 @@ if (coreSrc === null) {
 }
 
 // ── 7. 宿主状态体检（信息项，不影响判定）─────────────────────────────────
-const resources = "D:/DSH/resources";
-const asarExists = fs.existsSync(path.join(resources, "app.asar"));
-const appDirExists = fs.existsSync(path.join(resources, "app"));
-const hostMode = appDirExists ? "源码级补丁已解包（resources/app 存在）" : (asarExists ? "asar 密封，仅运行时注入" : "asar 不在原位");
+const asarExists = RESOURCES ? fs.existsSync(path.join(RESOURCES, "app.asar")) : false;
+const appDirExists = RESOURCES ? fs.existsSync(path.join(RESOURCES, "app")) : false;
+const hostMode = !RESOURCES ? "未找到宿主 resources 目录（可用 DSH_RESOURCES 指定）"
+  : appDirExists ? "源码级补丁已解包（resources/app 存在）"
+  : asarExists ? "asar 密封，仅运行时注入"
+  : "asar 不在原位";
 console.log(`宿主形态：${hostMode}`);
 
 const runtimeFiles = (() => {
+  if (!RESOURCES) return -1;
   try {
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true })
       .reduce((n, e) => n + (e.isDirectory() ? walk(path.join(d, e.name)) : 1), 0);
-    return walk(path.join(resources, "runtime"));
+    return walk(path.join(RESOURCES, "runtime"));
   } catch { return -1; }
 })();
-record("runtime 完整性", runtimeFiles > 5000, `${runtimeFiles} 个文件`);
+// 找不到宿主目录时不能记 true：旧版恒定测某个写死路径，换台机器就变成假绿。
+record(
+  "runtime 完整性",
+  runtimeFiles > 5000,
+  RESOURCES ? (runtimeFiles < 0 ? "runtime 目录不可读" : `${runtimeFiles} 个文件`) : "未找到宿主 resources 目录",
+);
 
-const uiSkill = path.join(resources, "runtime", "office-skills", "office", "SKILL.md");
-record("office-skills 就位", fs.existsSync(uiSkill), fs.existsSync(uiSkill) ? "正常" : "缺失会导致启动 fatal");
+const uiSkill = RESOURCES ? path.join(RESOURCES, "runtime", "office-skills", "office", "SKILL.md") : "";
+const uiSkillOk = Boolean(uiSkill) && fs.existsSync(uiSkill);
+record(
+  "office-skills 就位",
+  uiSkillOk,
+  !uiSkill ? "未找到宿主 resources 目录" : (uiSkillOk ? "正常" : "缺失会导致启动 fatal"),
+);
 
 // ── 7.5 深度破甲层完整性（消息层 / 尾锚 / 安全段下线）────────────────────
 const NM_LIB = path.join(PROFILE_DIR, "node_modules", "dsh-purge", "lib");
@@ -323,14 +425,36 @@ try {
 }
 
 const identitySrc = readIf(path.join(LIB, "identity.js")) || "";
-record("尾锚实现", identitySrc.includes("TAIL_ANCHOR_SECTION"), identitySrc.includes("TAIL_ANCHOR_SECTION") ? "正常" : "缺失（system 尾部没有二次压制）");
-record("安全段整段下线", identitySrc.includes("isSafetyOnlySection"), identitySrc.includes("isSafetyOnlySection") ? "正常" : "退化为逐句正则，dsh 改措辞即漏");
+const indexSrc = readIf(path.join(LIB, "index.js")) || "";
+// 判"逻辑真的接上了"，而不是"变量名出现过"：必须同时有定义、有调用点。
+const tailDefined = /export const TAIL_ANCHOR_SECTION\s*=/.test(identitySrc);
+const tailCalled = /appendTailAnchor\(outSections\)/.test(identitySrc);
+record("尾锚实现", tailDefined && tailCalled, tailDefined
+  ? (tailCalled ? "正常" : "已定义但装配出口没调用，尾锚不生效")
+  : "缺失（system 尾部没有二次压制）");
+const safetyDefined = /export function isSafetyOnlySection\(/.test(identitySrc);
+const safetyCalled = /isSafetyOnlySection\(section\)/.test(identitySrc);
+record("安全段整段下线", safetyDefined && safetyCalled, safetyDefined
+  ? (safetyCalled ? "正常" : "已定义但装配循环没调用")
+  : "退化为逐句正则，dsh 改措辞即漏");
+// 回归保护：尾锚只能有一份，重复注册会让两套措辞互相打架。
+record("尾锚唯一（无重复注册）", !indexSrc.includes("dsh-purge:tail"),
+  indexSrc.includes("dsh-purge:tail") ? "index.js 仍在注册第二份尾锚" : "正常");
 
 const deepSrc = readIf(path.join(LIB, "deep-purge.js"));
 record("深度破甲层文件", deepSrc !== null, deepSrc === null ? "缺 lib/deep-purge.js" : "正常");
-const indexSrc = readIf(path.join(LIB, "index.js")) || "";
 record("deep-purge 已挂载", /installDeepPurge\(ctx/.test(indexSrc), /installDeepPurge\(ctx/.test(indexSrc) ? "正常" : "index.js 没有调用 installDeepPurge");
-record("消息层开关", /prefillMode:\s*"/.test(indexSrc) && /refusalFilter:/.test(indexSrc), /prefillMode:\s*"/.test(indexSrc) ? "正常（拒绝清洗 / 遗迹剥离 / 预填充默认关）" : "DEFAULTS 缺深度开关");
+const hasPrefillMode = /prefillMode:\s*"/.test(indexSrc);
+const hasRefusalFilter = /refusalFilter:/.test(indexSrc);
+const prefillOff = /prefillMode:\s*"off"/.test(indexSrc);
+record(
+  "消息层开关",
+  hasPrefillMode && hasRefusalFilter && prefillOff,
+  !hasPrefillMode ? "DEFAULTS 缺 prefillMode"
+    : !hasRefusalFilter ? "DEFAULTS 缺 refusalFilter"
+    : !prefillOff ? "prefillMode 默认值不是 off（预填充会污染回复）"
+    : "正常（拒绝清洗 / 遗迹剥离 / 预填充默认关）",
+);
 
 // ── 8. 汇总 ─────────────────────────────────────────────────────────────────
 const fail = rows.filter((r) => !r.ok);
@@ -346,6 +470,6 @@ if (fail.length === 0) {
 }
 console.log(`有 ${fail.length} 项未通过。`);
 console.log("能自动修的已经修了；标「被覆盖，需重新注入」的说明插件源码被更新覆盖，");
-console.log("需要按 ~/.dsh/skills/dsh-desktop-repair 的重打流程补回守卫。");
+console.log("需要重新安装插件（或重新跑一次安装脚本）把守卫补回。");
 if (needRestart) console.log("→ 有修改，重启 DeepSeek Harness 生效。");
 process.exit(1);
