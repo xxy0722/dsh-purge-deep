@@ -273,6 +273,20 @@ export function sanitizePromptEntries(list) {
     record("装配出口已接清洗", true, "正常");
   }
 
+  // 2f. contexts 通道同样过清洗（dsh 0.2.1-rc.5 起 sandbox:policy / approval:policy
+  //     / working-directory:current 走 context 通道，它也参与严格插值）
+  if (!/contexts: sanitizePromptEntries\(/.test(src)) {
+    const ctxAnchor = /contexts: Array\.isArray\(assembled\.contexts\) \? assembled\.contexts : \[\],/;
+    if (ctxAnchor.test(src)) {
+      src = src.replace(ctxAnchor, "contexts: sanitizePromptEntries(Array.isArray(assembled.contexts) ? assembled.contexts : []),");
+      record("contexts 通道已接清洗", true, "已接线");
+    } else {
+      record("contexts 通道已接清洗", false, "找不到 contexts 返回锚点，需人工补");
+    }
+  } else {
+    record("contexts 通道已接清洗", true, "正常");
+  }
+
   if (!CHECK_ONLY && src !== identity) {
     backupOnce(identityPath);
     fs.writeFileSync(identityPath, src, "utf8");

@@ -10,6 +10,34 @@
 
 ---
 
+## 2.0.3 — 2026-11-02
+
+适配 dsh 桌面版 **0.2.1-rc.5**（自动更新换掉宿主后重跑一次即可恢复）。
+
+### 适配
+
+- `dshTarget` 由 `0.2.0-rc.2` 更新为 `0.2.1-rc.5`。
+- 新增 **contexts 通道出口清洗**。rc.5 把沙箱策略、审批策略、工作目录从 section
+  拆成独立的 `context()` 通道（`sandbox:policy` / `approval:policy` /
+  `working-directory:current`），它和 sections 一样受严格插值约束，
+  出现未注册变量会让整轮渲染直接失败。现在两条通道都过 `sanitizePromptEntries`。
+- 核对 rc.5 的排序模型：`SECTION_ORDERS` 改成命名槽位
+  （`HARNESS_IDENTITY: -1000` … `DEPLOYMENT_PERSONA_SUFFIX: 10200`），
+  但底层仍是数字比较。尾锚 `order = 1000000` 依然排在全部官方段之后，无需改动。
+- 适配 0.2.1-rc.5 失效的 runtime：升级后 `resources/runtime` 可能为空目录，
+  启动即 `ENOENT office-skills/office/SKILL.md`。用升级缓存里的同版本安装包
+  解出 `resources/runtime` 回填即可（6150 个文件）。
+
+### 说明
+
+- rc.5 的安全/政策措辞主要走 contexts，`isSafetyOnlySection()` 在 sections 上
+  命中率下降属于预期。策略文本描述的是**实际执行约束**，删掉不会改变沙箱行为，
+  只会让模型误判可用操作，因此本版不默认剔除 policy context。
+- 宿主 `app.asar` 更新后保持密封，插件只做运行时注入；不会自动解包
+  `resources/app`，也不会改写 `resources/runtime`（10/26 写空 runtime 的路径不再触发）。
+
+---
+
 ## 2.0.2 — 2026-10-27
 
 ### 修复
