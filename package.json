@@ -1,6 +1,6 @@
 {
   "name": "dsh-purge",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "DeepSeek Harness 破甲深度分支（dsh-purge-deep）：首尾夹击 + 生成层熔断 + 宿主源码级补丁。基于 YuJunZhiXue/dsh-purge 改造，适配 dsh 桌面版 0.2.1-rc.3。",
   "type": "module",
   "main": "lib/index.js",
@@ -28,13 +28,16 @@
     "client.js",
     "cordis.patch.yml",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
     "build:client": "node scripts/build-client.mjs",
     "fix": "node scripts/fix-dsh-purge.mjs",
-    "check": "node scripts/fix-dsh-purge.mjs --check"
+    "check": "node scripts/fix-dsh-purge.mjs --check",
+    "test": "node tests/run.mjs",
+    "release": "node scripts/release.mjs"
   },
   "license": "MIT",
   "author": "xxy0722",
