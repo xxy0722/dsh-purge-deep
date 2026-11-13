@@ -40,7 +40,10 @@ const current = pkg.version;
 
 console.log(`\n发版 ${current} → ${version}${dryRun ? "（dry-run）" : ""}\n`);
 
-if (version === current) die(`版本号没变（仍是 ${current}），请先改号`);
+// 两种进入方式都支持：① 只写了 CHANGELOG，由脚本提版本号；
+// ② 版本号已经自己改好 —— 此时在 tag 尚未存在的前提下按「发布当前版本」处理。
+const alreadyAtTarget = version === current;
+if (alreadyAtTarget) info(`package.json 已是 ${version}，按「发布当前版本」处理`);
 
 const cmp = (a, b) => {
   const pa = a.split(".").map(Number);
@@ -48,7 +51,7 @@ const cmp = (a, b) => {
   for (let i = 0; i < 3; i += 1) if (pa[i] !== pb[i]) return pa[i] - pb[i];
   return 0;
 };
-if (cmp(version, current) <= 0) die(`新版本 ${version} 必须大于当前 ${current}`);
+if (!alreadyAtTarget && cmp(version, current) <= 0) die(`新版本 ${version} 必须大于当前 ${current}`);
 
 let branch = "";
 try {
@@ -83,9 +86,13 @@ console.log(testOut.split(/\r?\n/).slice(-9).join("\n"));
 if (testRun.status !== 0) die("测试未通过，拒绝发版");
 
 // ── 3. 提版本号 ──────────────────────────────────────────────────────
-pkg.version = version;
-if (!dryRun) fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
-info(`package.json version → ${version}`);
+if (!alreadyAtTarget) {
+  pkg.version = version;
+  if (!dryRun) fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+  info(`package.json version → ${version}`);
+} else {
+  info(`package.json version 保持 ${version}`);
+}
 
 // 运行时副本同步（plugins/<name> 与 profiles/*/node_modules/<name> 常与仓库互为硬链接）
 const name = pkg.name;

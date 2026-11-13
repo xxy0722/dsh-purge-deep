@@ -417,7 +417,8 @@ const uiSkillOk = Boolean(uiSkill) && fs.existsSync(uiSkill);
 record(
   "office-skills 就位",
   uiSkillOk,
-  !uiSkill ? "未找到宿主 resources 目录" : (uiSkillOk ? "正常" : "缺失会导致启动 fatal"),
+  !uiSkill ? "未找到宿主 resources 目录"
+    : (uiSkillOk ? "正常" : "缺失会导致启动 fatal；跑 scripts/repair-runtime.mjs 自动回填"),
 );
 
 // ── 7.5 深度破甲层完整性（消息层 / 尾锚 / 安全段下线）────────────────────

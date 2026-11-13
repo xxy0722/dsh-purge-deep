@@ -1,9 +1,9 @@
 # dsh-purge-deep
 
-**DeepSeek Harness 破甲插件的深度分支** · 非官方衍生版 · 当前版本 `2.0.4`
+**DeepSeek Harness 破甲插件的深度分支** · 非官方衍生版 · 当前版本 `2.0.5`
 
 > 基于 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge) v1.1.71（MIT）改造，
-> 针对 **dsh 桌面版 0.2.1-rc.5** 做兼容适配，并把破甲从「system 提示词开头压一段狠话」
+> 针对 **dsh 桌面版 0.2.2-rc.1** 做兼容适配，并把破甲从「system 提示词开头压一段狠话」
 > 扩展成「首尾夹击 + 生成层熔断 + 宿主源码级补丁」的多层结构。
 
 [免责声明](#免责声明) · [适配范围](#适配范围) · [与原版的差异](#与原版的差异) · [安装](#安装) · [升级后修复](#dsh-升级之后怎么办) · [更新记录](CHANGELOG.md)
@@ -29,8 +29,8 @@
 
 | 项目 | 版本 / 说明 |
 |---|---|
-| dsh 桌面版 | **0.2.1-rc.5**（实测通过） |
-| dsh `dshTarget` 声明 | `0.2.1-rc.5` |
+| dsh 桌面版 | **0.2.2-rc.1**（实测通过） |
+| dsh `dshTarget` 声明 | `0.2.2-rc.1` |
 | dsh 形态 | 桌面版（Electron 壳）；`dsh web` 亦可，但只在桌面版实测 |
 | Node.js | `>= 18`（实测 22.x / 24.x） |
 | 操作系统 | Windows（桌面版限定） |
@@ -211,19 +211,24 @@ node "$DSH_HOME/plugins/dsh-purge/scripts/fix-dsh-purge.mjs"
 dsh 桌面版走 nightly 通道，升级会重写安装目录与 profile 清单。升级后按顺序做：
 
 ```bash
-# 1. 先停掉 dsh（运行中会回写配置）
+# 0. 先停掉 dsh（运行中会回写配置）
+
+# 1. 更新后起不来、报 ENOENT office-skills\office\SKILL.md → 先补 runtime
+node scripts/repair-runtime.mjs          # 只检查加 --check
+
 # 2. 跑自愈
-node "$DSH_HOME/plugins/dsh-purge/scripts/fix-dsh-purge.mjs"
-# 3. 如果提示「宿主形态：密封」，去 dsh 设置里点一次「应用」重新解包
-# 4. 再跑一次确认
-node "$DSH_HOME/plugins/dsh-purge/scripts/fix-dsh-purge.mjs" --check
+node scripts/fix-dsh-purge.mjs
+
+# 3. 再跑一次确认
+node scripts/fix-dsh-purge.mjs --check
 ```
 
 典型故障与对应：
 
 | 症状 | 处理 |
 |---|---|
-| 启动报 `ENOENT ... office-skills\office\SKILL.md` | `resources/runtime` 被清空。从安装包内层 `$PLUGINSDIR/app-64.7z` 解出 `resources/runtime/*` 回填 |
+| 启动报 `ENOENT ... office-skills\office\SKILL.md` | `resources/runtime` 被清空。跑 `node scripts/repair-runtime.mjs`，会自动从升级缓存的同版本安装包解出并回填 |
+| 应用内更新报 `desktop update: task inspection timed out` | 更新前壳程序要问 Host「有没有在跑的任务」，**10 秒不应答就拒绝安装**。等当前任务跑完、或空闲时再点；实在不行直接静默装安装包（`"%LOCALAPPDATA%\@deepseek-aidsh-desktop-updater\pending\<版本>.exe" /S /D=<安装目录>`），装完照样要跑一次 `repair-runtime.mjs` |
 | `unknown prompt variable "{{cwd}}"` | 本分支已修；若复发，检查 `gui` 侧是否回滚了 `identity.js` |
 | 不报错但没效果 | 先看 `bundles`，再看插件日志有没有 `[boot]` |
 | 崩溃日志堆积 | `%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-*.log` |

@@ -10,6 +10,35 @@
 
 ---
 
+## 2.0.5 — 2026-11-13
+
+适配 dsh 桌面版 **0.2.2-rc.1**，并把「更新之后起不来」变成一条命令能修的事。
+
+### 新增
+
+- `scripts/repair-runtime.mjs`：自动修复更新后 `resources/runtime` 为空导致的启动 fatal。
+  - 自动从注册表 `DisplayIcon` 定位安装目录，从 `app.asar` 的 `package.json` 读已装版本；
+  - 校验升级缓存里安装包的版本与已装版本一致（不一致拒绝，除非 `--force`）；
+  - 7z 抽出 `$PLUGINSDIRpp-64.7z` 里的 `resources/runtime/*` 回填，逐文件复制；
+  - 结束前校验文件数、`office-skills\office\SKILL.md`、`runtime.json` 的 `desktopVersion`。
+  - `--check` 只检测；已在 6144 文件的真实安装与空目录上各跑通一次。
+
+### 适配
+
+- `dshTarget` 由 `0.2.1-rc.5` 更新为 `0.2.2-rc.1`。
+- 核对 0.2.2-rc.1 的插件面：`systemPrompt.section()`、严格插值、`agent/pre-step`
+  （新增 `modelSelection`，向后兼容）、`session.deriveMessages` 均未变；
+  `SECTION_ORDERS` 新增 `TOOL_APPLY_PATCH`(1350) / `TOOL_SCHEDULE`(2500)，最大值仍是
+  `DEPLOYMENT_PERSONA_SUFFIX` 10200，尾锚 `1000000` 依旧排在最后；`CONTEXT_ORDERS` 未变。
+- README 补充 `desktop update: task inspection timed out` 的成因与两种绕法。
+
+### 说明
+
+这一版没有改动破甲逻辑，只做兼容性与可维护性。宿主从 0.2.2 起安装后保持 asar 密封，
+插件走纯运行时注入，不会再自动解包 `resources/app`。
+
+---
+
 ## 2.0.4 — 2026-11-03
 
 发版流程工程化。从这一版起，**测试通过即发布**：一条命令完成校验、测试、提版本、
