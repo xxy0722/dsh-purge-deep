@@ -10,6 +10,41 @@
 
 ---
 
+## 2.0.6 — 2026-11-13
+
+修复 dsh 0.2.2-rc.1 的一个会话列表故障：**点开一个会话，它就从这个列表里消失**。
+
+### 根因（用 CDP 抓 WebSocket 帧定位）
+
+点击会话时客户端发 `session/follow {activate:true}`，宿主恢复会话时抛：
+
+```
+RemoteError: tool-subagent-list-agents
+(@deepseek-ai/dsh-tool-subagent-control/list-agents): never started
+```
+
+随后宿主连发 `api-session/error` 和 `api-session/removed`，该会话被移出列表快照。
+`never started` 的含义是这一行插件的 fiber 从未启动（`entry.fiber === undefined`）。
+磁盘上的会话文件与工作区登记都没有变化，所以重启即恢复 —— 这也解释了为什么"重启后回来了，但一点又少一个"。
+
+### 新增
+
+- `scripts/fix-session-resume.mjs`：把 profile 补丁里那一行标记 `disabled: true`，
+  会话不再要求这个从未启动的工具，恢复即通过。自动备份原文件。
+  ```
+  node scripts/fix-session-resume.mjs            # 修复
+  node scripts/fix-session-resume.mjs --check    # 只检查
+  node scripts/fix-session-resume.mjs --enable   # 反做
+  ```
+
+### 验证
+
+- 修复前：点一次，列表 9 → 8，被点的那个消失
+- 修复后：连续点「兔北上学记」「ai答题」「兔兔记账」，9 → 9 → 9 → 9，无一条消失
+- 排除了自身嫌疑：把本插件从 `dsh.profile.bundles` 摘掉后问题依旧，确认不是 dsh-purge 引起
+
+---
+
 ## 2.0.5 — 2026-11-13
 
 适配 dsh 桌面版 **0.2.2-rc.1**，并把「更新之后起不来」变成一条命令能修的事。

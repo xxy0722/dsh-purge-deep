@@ -1,6 +1,6 @@
 # dsh-purge-deep
 
-**DeepSeek Harness 破甲插件的深度分支** · 非官方衍生版 · 当前版本 `2.0.5`
+**DeepSeek Harness 破甲插件的深度分支** · 非官方衍生版 · 当前版本 `2.0.6`
 
 > 基于 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge) v1.1.71（MIT）改造，
 > 针对 **dsh 桌面版 0.2.2-rc.1** 做兼容适配，并把破甲从「system 提示词开头压一段狠话」
@@ -232,6 +232,7 @@ node scripts/fix-dsh-purge.mjs --check
 | `unknown prompt variable "{{cwd}}"` | 本分支已修；若复发，检查 `gui` 侧是否回滚了 `identity.js` |
 | 不报错但没效果 | 先看 `bundles`，再看插件日志有没有 `[boot]` |
 | 崩溃日志堆积 | `%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-*.log` |
+| 点开一个会话，它就从左侧列表消失 | `tool-subagent-list-agents` 这一行插件 `never started`，恢复会话时抛错、宿主把会话移出列表。跑 `node scripts/fix-session-resume.mjs` 把它标记 disabled 即可（重启生效） |
 
 ---
 
