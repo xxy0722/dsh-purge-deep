@@ -1,6 +1,14 @@
 # dsh-purge-deep
 
-**DeepSeek Harness 破甲插件的深度分支** · 非官方衍生版 · 当前版本 `2.0.9`
+> **⚠️ 本分支已停止跟进宿主更新（2026-11-19）**
+>
+> 日常使用请改用社区维护版 **[kingcharleslzy-ai/dsh-purge](https://github.com/kingcharleslzy-ai/dsh-purge)**
+> （dsh-purge Community，88 条宿主补丁 / 适配 0.2.2-rc.1~rc.5 / 每日更新）。
+> 本仓库代码与历史全部保留，`2.0.9` 是最后一个跟进宿主的版本。
+
+
+
+**DeepSeek Harness 破甲插件的深度分支** · 非官方衍生版 · 当前版本 `2.0.10`（维护收敛）
 
 > 基于 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge) v1.1.71（MIT）改造，
 > 针对 **dsh 桌面版 0.2.2-rc.1** 做兼容适配，并把破甲从「system 提示词开头压一段狠话」
