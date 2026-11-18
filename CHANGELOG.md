@@ -10,6 +10,36 @@
 
 ---
 
+## 2.0.9 — 2026-11-18
+
+修好桌面壳补丁：主进程的 `DSH_PROFILE` 兜底重新能打上，应用数 **54/66 → 55/66**。
+
+### 根因
+
+#82（`DESKTOP_SHELL_PROFILE_FALLBACK`）的匹配串是**两行连比**：
+
+```
+import { REMOTE_STREAM_MUX_PATH, ... } from "@deepseek-ai/dsh-api-gateway/stream-protocol";
+//#region ../../packages/util/home-paths/lib/index.js
+```
+
+0.2.2 把紧跟其后的 `//#region` 注释换成了 mime 的 pnpm 路径，第二行对不上，整条规则永远失配。
+这条补丁的作用是给主进程兜底 `DSH_PROFILE=desktop`——缺了它，从资源管理器双击 exe 启动时
+host 子进程会 `cannot determine the boot profile`，插件根本不 activate，破甲全断。
+
+### 改动
+
+- 锚点改成只认那条 `stream-protocol` import（全文唯一），不再依赖后面的注释行。
+- 实测：应用后 `resources/app/lib/main.js` 出现 `[dsh-purge-82]` 标记，
+  面板「代码」33/40 → 34/40，总应用 54/66 → 55/66。
+
+### 说明
+
+#82 只在 `surface=desktop` 时能定位到主进程文件，所以**必须从桌面版的插件面板点「应用」**；
+在普通 Node 里调用 `applyPatchesAllHosts` 时该目标解析为空，规则会被误报成 missing_file。
+
+---
+
 ## 2.0.8 — 2026-11-18
 
 修复 0.2.2 模块重组导致的源码级补丁失配，应用数 **52/66 → 54/66**。
