@@ -10,6 +10,41 @@
 
 ---
 
+## 2.0.7 — 2026-11-18
+
+把 2.0.6 的「禁用死行」升级成「删掉死行」，并让插件清单不再有任何起不来的项。
+
+### 真正的根因
+
+2.0.6 只是把 `tool-subagent-list-agents` 标记 `disabled: true` 绕过去。这次查到它
+**为什么**永远起不来：profile 补丁里声明的是子路径
+`@deepseek-ai/dsh-tool-subagent-control/list-agents`，而该包从 0.2.2 起
+`package.json` 的 `exports` 只剩 `.`、`./src/*`、`./package.json`、`./locale/*.json`
+—— **没有 `./list-agents`**。模块解析直接失败，这一行自然不会启动。
+
+### 工具并没有丢
+
+`list_agents` 已并入主入口 `@deepseek-ai/dsh-tool-subagent-control` 的 `lib/index.js`
+（`name: "list_agents"`）。所以正确做法是**删掉这条重复的死行**，而不是禁用：
+功能一分不少，清单里也不会留一条永远禁用的僵尸项。
+
+2.0.6 那条「禁用会丢 list-agents 能力」的提示因此作废，本版更正。
+
+### 改动
+
+- `scripts/fix-session-resume.mjs` 改为整块删除该行，保留 `--check`；
+  已在备份文件构造的隔离环境上验证「检测 → 删除 → 0 残留」三步。
+- 建议同时把 profile 补丁里其余 `disabled: true` 一并放开——
+  `tool-subagent-codex`、`tool-subagent-claude-code`、`tool-ralph`、`tool-plugin-manager`
+  都能正常启动，留着只是清单噪音。
+
+### 验证
+
+放开全部禁用 + 删除死行后重启：侧边栏 19 条会话，连续点「CS2作弊辅助开发请求」
+「橘子服务器」「yolo」「edge rewards」，19 → 19 → 19 → 19，无一条消失。
+
+---
+
 ## 2.0.6 — 2026-11-13
 
 修复 dsh 0.2.2-rc.1 的一个会话列表故障：**点开一个会话，它就从这个列表里消失**。
